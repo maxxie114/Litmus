@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { ModeToggle } from "@/components/mode-toggle";
 
 const NAV_LINKS = [
   { href: "/agents", label: "Agents" },
@@ -42,6 +43,7 @@ export function Nav() {
         </nav>
 
         <div className="flex flex-1 items-center justify-end space-x-2">
+          <ModeToggle />
           <Link href="/login">
             <Button variant="outline" size="sm">
               Sign In

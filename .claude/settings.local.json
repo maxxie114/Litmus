@@ -27,7 +27,8 @@
       "Bash(npx eslint:*)",
       "Bash(npx prettier --write .)",
       "Bash(npm run lint)",
-      "Bash(npm run format:*)"
+      "Bash(npm run format:*)",
+      "Bash(npm run build:*)"
     ]
   }
 }

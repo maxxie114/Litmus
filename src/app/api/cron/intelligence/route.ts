@@ -37,24 +37,26 @@ export async function GET(request: Request): Promise<Response> {
     if (error) throw error;
 
     const results: { agent_id: string; name: string; status: string }[] = [];
+    const allAgents = agents ?? [];
 
-    // Process agents sequentially to respect API rate limits
-    for (const agent of agents ?? []) {
-      try {
-        await gatherIntelligence(agent.name, agent.vendor, agent.id);
-        results.push({
-          agent_id: agent.id,
-          name: agent.name,
-          status: "success",
-        });
-      } catch (e) {
-        console.error(`[cron/intelligence] Failed for agent ${agent.name}:`, e);
-        results.push({
-          agent_id: agent.id,
-          name: agent.name,
-          status: `error: ${e instanceof Error ? e.message : "unknown"}`,
-        });
-      }
+    // Process agents in batches to balance speed vs rate limits
+    const BATCH_SIZE = 3;
+    for (let i = 0; i < allAgents.length; i += BATCH_SIZE) {
+      const batch = allAgents.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.allSettled(
+        batch.map((agent) => gatherIntelligence(agent.name, agent.vendor, agent.id))
+      );
+
+      batch.forEach((agent, idx) => {
+        const result = batchResults[idx];
+        if (result.status === "fulfilled") {
+          results.push({ agent_id: agent.id, name: agent.name, status: "success" });
+        } else {
+          const msg = result.reason instanceof Error ? result.reason.message : "unknown";
+          console.error(`[cron/intelligence] Failed for agent ${agent.name}:`, result.reason);
+          results.push({ agent_id: agent.id, name: agent.name, status: `error: ${msg}` });
+        }
+      });
     }
 
     return Response.json({

@@ -46,10 +46,7 @@ export default async function AgentsPage({ searchParams }: PageProps) {
   const to = from + DEFAULT_PAGE_SIZE - 1;
   agentsQuery = agentsQuery.range(from, to);
 
-  // Execute the query
-  const { data: agents, error } = await agentsQuery;
-
-  // Get total count for pagination
+  // Build count query in parallel
   let countQuery = supabase.from("agents").select("id", { count: "exact", head: true });
 
   if (query) {
@@ -60,9 +57,11 @@ export default async function AgentsPage({ searchParams }: PageProps) {
     countQuery = countQuery.eq("category", category);
   }
 
-  const { count } = await countQuery;
+  // Execute both queries in parallel
+  const [dataResult, countResult] = await Promise.all([agentsQuery, countQuery]);
+  const { data: agents, error } = dataResult;
+  const { count } = countResult;
 
-  // Handle errors
   if (error) {
     console.error("Error fetching agents:", error);
   }

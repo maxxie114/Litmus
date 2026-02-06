@@ -35,7 +35,7 @@ export function mulawToPcm16k(mulawBase64: string): Buffer {
   wav.toSampleRate(16000);
 
   // Extract raw PCM sample data (skip WAV header)
-  const samples = wav.data.samples as Uint8Array;
+  const samples = (wav.data as { samples: Uint8Array }).samples;
   return Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
 }
 
@@ -62,7 +62,7 @@ export function pcm24kToMulaw(pcmBuffer: Buffer): string {
   wav.toMuLaw();
 
   // Extract raw mu-law sample data
-  const samples = wav.data.samples as Uint8Array;
+  const samples = (wav.data as { samples: Uint8Array }).samples;
   const mulawBytes = Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
 
   return mulawBytes.toString("base64");

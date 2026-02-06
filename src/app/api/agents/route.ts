@@ -2,7 +2,8 @@ import { z } from "zod/v4";
 import { createServerClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { gatherIntelligence } from "@/lib/youcom/intelligence";
 import { generateAgentProfile } from "@/lib/gemini/profiler";
-import { handleApiError, validateWithZod, ValidationError } from "@/lib/utils/errors";
+import { after } from "next/server";
+import { handleApiError, validateWithZod, ValidationError, UnauthorizedError } from "@/lib/utils/errors";
 import { AGENT_CATEGORIES, DEFAULT_PAGE_SIZE } from "@/lib/utils/constants";
 import type { AgentCategory } from "@/types/agent";
 
@@ -109,7 +110,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     // Standard filtered query
-    let queryBuilder = supabase.from("agents").select("*", { count: "exact" });
+    let queryBuilder = supabase.from("agents").select("id, slug, name, vendor, category, overall_score, total_evaluations, capabilities, created_at", { count: "exact" });
 
     if (category) {
       queryBuilder = queryBuilder.eq("category", category);
@@ -141,13 +142,26 @@ export async function POST(request: Request): Promise<Response> {
     const body = await request.json();
     const data = validateWithZod(createAgentSchema, body);
 
-    const supabase = createServiceRoleClient();
+    // Authenticate the user
+    const authHeader = request.headers.get("authorization");
+    const token = authHeader?.replace("Bearer ", "");
+    const supabase = createServerClient();
+
+    if (token) {
+      const { data: userData, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !userData.user) {
+        throw new UnauthorizedError("Invalid authentication token");
+      }
+    }
+
+    // Use service role for slug check + insert (needs to bypass RLS for uniqueness check)
+    const serviceClient = createServiceRoleClient();
 
     // Generate a unique slug from the agent name
     const baseSlug = generateSlug(data.name);
-    const slug = await ensureUniqueSlug(supabase, baseSlug);
+    const slug = await ensureUniqueSlug(serviceClient, baseSlug);
 
-    const { data: agent, error } = await supabase
+    const { data: agent, error } = await serviceClient
       .from("agents")
       .insert({
         slug,
@@ -164,17 +178,16 @@ export async function POST(request: Request): Promise<Response> {
       throw new ValidationError("Failed to create agent", error);
     }
 
-    // Kick off async intelligence gathering & profile generation.
-    // These run in the background; we do not await them to avoid blocking the response.
-    (async () => {
+    // Schedule background tasks outside the request lifecycle
+    after(async () => {
       try {
         await gatherIntelligence(data.name, data.vendor, agent.id);
       } catch (e) {
         console.error("[agents/POST] Intelligence gathering failed:", e);
       }
-    })();
+    });
 
-    (async () => {
+    after(async () => {
       try {
         const profile = await generateAgentProfile(
           `Agent: ${data.name} by ${data.vendor}. Website: ${data.website_url}`,
@@ -182,7 +195,7 @@ export async function POST(request: Request): Promise<Response> {
           data.vendor
         );
 
-        await supabase
+        await serviceClient
           .from("agents")
           .update({
             description: profile.description,
@@ -195,7 +208,7 @@ export async function POST(request: Request): Promise<Response> {
       } catch (e) {
         console.error("[agents/POST] Profile generation failed:", e);
       }
-    })();
+    });
 
     return Response.json({ agent }, { status: 201 });
   } catch (error) {

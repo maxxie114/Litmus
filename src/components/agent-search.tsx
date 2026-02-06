@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -18,6 +18,7 @@ export function AgentSearch() {
   const [isPending, startTransition] = useTransition();
 
   const [query, setQuery] = useState(searchParams.get("query") ?? "");
+  const debounceRef = useRef<NodeJS.Timeout>(null);
 
   const updateParams = useCallback(
     (key: string, value: string) => {
@@ -43,9 +44,8 @@ export function AgentSearch() {
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
-            // Debounce search
-            const timeout = setTimeout(() => updateParams("query", e.target.value), 300);
-            return () => clearTimeout(timeout);
+            if (debounceRef.current) clearTimeout(debounceRef.current);
+            debounceRef.current = setTimeout(() => updateParams("query", e.target.value), 300);
           }}
           className={isPending ? "opacity-70" : ""}
         />

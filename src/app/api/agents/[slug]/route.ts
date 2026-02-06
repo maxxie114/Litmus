@@ -50,33 +50,33 @@ export async function GET(
     const [benchmarks, voiceEvals, reviews, intelligence, verifications] = await Promise.all([
       supabase
         .from("benchmarks")
-        .select("*")
+        .select("id, benchmark_type, composite_score, scores, task_description, created_at")
         .eq("agent_id", agent.id)
         .order("created_at", { ascending: false })
         .limit(20),
 
       supabase
         .from("voice_evaluations")
-        .select("*")
+        .select("id, composite_score, scores, created_at")
         .eq("agent_id", agent.id)
         .order("created_at", { ascending: false })
         .limit(10),
 
       supabase
         .from("user_reviews")
-        .select("*")
+        .select("id, rating, review_text, use_case, verified_usage, created_at")
         .eq("agent_id", agent.id)
         .order("created_at", { ascending: false })
         .limit(20),
 
       supabase
         .from("web_intelligence")
-        .select("*")
+        .select("id, source_type, source_url, title, summary, sentiment, relevance_score, fetched_at")
         .eq("agent_id", agent.id)
         .order("fetched_at", { ascending: false })
         .limit(20),
 
-      supabase.from("tool_verifications").select("*").eq("agent_id", agent.id),
+      supabase.from("tool_verifications").select("id, tool_name, claimed, verified, verified_at").eq("agent_id", agent.id),
     ]);
 
     return Response.json({

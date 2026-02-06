@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BENCHMARK_TYPES, BENCHMARK_TYPE_LABELS } from "@/lib/utils/constants";
@@ -18,6 +19,7 @@ import type { BenchmarkType, BenchmarkScores } from "@/types/benchmark";
 
 type BenchmarkRunnerProps = {
   agentSlug: string;
+  hasApiEndpoint: boolean;
 };
 
 type RunState = {
@@ -28,8 +30,9 @@ type RunState = {
   error: string | undefined;
 };
 
-export function BenchmarkRunner({ agentSlug }: BenchmarkRunnerProps) {
+export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerProps) {
   const [benchmarkType, setBenchmarkType] = useState<BenchmarkType>("text_qa");
+  const [agentResponse, setAgentResponse] = useState("");
   const [state, setState] = useState<RunState>({
     status: "idle",
     benchmarkId: undefined,
@@ -51,7 +54,10 @@ export function BenchmarkRunner({ agentSlug }: BenchmarkRunnerProps) {
       const response = await fetch(`/api/agents/${agentSlug}/benchmark`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ benchmark_type: benchmarkType }),
+        body: JSON.stringify({
+          benchmark_type: benchmarkType,
+          ...(agentResponse.trim() ? { agent_response: agentResponse.trim() } : {}),
+        }),
       });
 
       if (!response.ok) {
@@ -101,10 +107,28 @@ export function BenchmarkRunner({ agentSlug }: BenchmarkRunnerProps) {
               ))}
             </SelectContent>
           </Select>
-          <Button onClick={runBenchmark} disabled={state.status === "running"}>
+          <Button
+            onClick={runBenchmark}
+            disabled={state.status === "running" || (!hasApiEndpoint && !agentResponse.trim())}
+          >
             {state.status === "running" ? "Running..." : "Run Benchmark"}
           </Button>
         </div>
+
+        {!hasApiEndpoint && (
+          <div className="space-y-2">
+            <p className="text-sm text-muted-foreground">
+              This agent has no API endpoint configured. Paste the agent&apos;s response below to evaluate it.
+            </p>
+            <Textarea
+              placeholder="Paste the agent's response here..."
+              value={agentResponse}
+              onChange={(e) => setAgentResponse(e.target.value)}
+              disabled={state.status === "running"}
+              rows={6}
+            />
+          </div>
+        )}
 
         {state.status === "running" && (
           <div className="space-y-2">

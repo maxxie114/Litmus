@@ -223,7 +223,7 @@ async function handleStop(message: { event: "stop"; streamId: string }): Promise
 function startReceiveLoop(
   socket: WebSocket,
   streamId: string,
-  geminiSession: import("@google/genai").Session
+  geminiSession: import("./gemini-live.js").LiveSession
 ): void {
   (async () => {
     try {

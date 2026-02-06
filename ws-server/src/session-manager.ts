@@ -8,8 +8,7 @@
  * Exports a singleton instance used across the application.
  */
 
-import type { Session } from "@google/genai";
-import { createLiveSession } from "./gemini-live.js";
+import { type LiveSession, createLiveSession } from "./gemini-live.js";
 import { getAgentSystemPrompt } from "./prompts.js";
 
 export interface TranscriptEntry {
@@ -19,7 +18,7 @@ export interface TranscriptEntry {
 }
 
 export interface SessionData {
-  geminiSession: Session;
+  geminiSession: LiveSession;
   transcript: TranscriptEntry[];
   callId: string;
   agentId: string;

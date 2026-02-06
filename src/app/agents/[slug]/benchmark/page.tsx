@@ -11,7 +11,7 @@ export default async function BenchmarkPage({ params }: { params: Promise<{ slug
 
   const { data: agent } = await supabase
     .from("agents")
-    .select("id, name, slug")
+    .select("id, name, slug, api_endpoint")
     .eq("slug", slug)
     .single();
 
@@ -31,7 +31,7 @@ export default async function BenchmarkPage({ params }: { params: Promise<{ slug
         <span>Benchmark</span>
       </div>
       <h1 className="text-3xl font-bold">Benchmark — {agent.name}</h1>
-      <BenchmarkRunner agentSlug={slug} />
+      <BenchmarkRunner agentSlug={slug} hasApiEndpoint={!!agent.api_endpoint} />
     </div>
   );
 }
