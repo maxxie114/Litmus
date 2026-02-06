@@ -28,7 +28,20 @@
       "Bash(npx prettier --write .)",
       "Bash(npm run lint)",
       "Bash(npm run format:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npm run dev:*)",
+      "Bash(timeout:*)",
+      "mcp__chrome-devtools__navigate_page",
+      "mcp__chrome-devtools__take_snapshot",
+      "mcp__chrome-devtools__click",
+      "mcp__chrome-devtools__wait_for",
+      "mcp__chrome-devtools__take_screenshot",
+      "mcp__chrome-devtools__fill",
+      "mcp__chrome-devtools__list_console_messages",
+      "Bash(npx tsx:*)",
+      "Bash(node -e:*)",
+      "Bash(node --input-type=module -e:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

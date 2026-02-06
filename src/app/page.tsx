@@ -27,7 +27,7 @@ export default async function HomePage() {
   return (
     <div className="flex flex-col">
       {/* Hero */}
-      <section className="container py-24 md:py-32 flex flex-col items-center text-center space-y-6">
+      <section className="container mx-auto px-4 md:px-6 py-24 md:py-32 flex flex-col items-center text-center space-y-6">
         <Badge variant="secondary" className="text-sm">
           The transparent AI agent evaluation platform
         </Badge>
@@ -56,7 +56,7 @@ export default async function HomePage() {
       </section>
 
       {/* Feature highlights */}
-      <section className="container py-16 border-t">
+      <section className="container mx-auto px-4 md:px-6 py-16 border-t">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {[
             {
@@ -87,7 +87,7 @@ export default async function HomePage() {
 
       {/* Top agents */}
       {topAgents && topAgents.length > 0 && (
-        <section className="container py-16 border-t">
+        <section className="container mx-auto px-4 md:px-6 py-16 border-t">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold">Top Rated Agents</h2>
             <Link href="/agents">
@@ -112,7 +112,7 @@ export default async function HomePage() {
       )}
 
       {/* CTA */}
-      <section className="container py-16 border-t">
+      <section className="container mx-auto px-4 md:px-6 py-16 border-t">
         <div className="flex flex-col items-center text-center space-y-4">
           <h2 className="text-2xl font-bold">Compare Agents Side by Side</h2>
           <p className="text-muted-foreground max-w-lg">

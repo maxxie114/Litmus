@@ -73,15 +73,50 @@ export async function evaluateBenchmark(
   });
 
   const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText) as {
+
+  let parsed: {
     scores: BenchmarkScores;
     justifications: Record<keyof BenchmarkScores, string>;
   };
 
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (e) {
+    console.error("[judge] Failed to parse Gemini benchmark response:", rawText.slice(0, 500), e);
+    const fallbackScores: BenchmarkScores = {
+      accuracy: 0,
+      coherence: 0,
+      helpfulness: 0,
+      hallucination: 0,
+      completeness: 0,
+    };
+    const fallbackJustification = "Evaluation failed: could not parse Gemini response.";
+    return {
+      scores: fallbackScores,
+      justifications: {
+        accuracy: fallbackJustification,
+        coherence: fallbackJustification,
+        helpfulness: fallbackJustification,
+        hallucination: fallbackJustification,
+        completeness: fallbackJustification,
+      },
+      composite_score: 0,
+      raw_response: rawText,
+    };
+  }
+
+  const scores: BenchmarkScores = {
+    accuracy: parsed.scores?.accuracy ?? 0,
+    coherence: parsed.scores?.coherence ?? 0,
+    helpfulness: parsed.scores?.helpfulness ?? 0,
+    hallucination: parsed.scores?.hallucination ?? 0,
+    completeness: parsed.scores?.completeness ?? 0,
+  };
+
   return {
-    scores: parsed.scores,
-    justifications: parsed.justifications,
-    composite_score: computeBenchmarkComposite(parsed.scores),
+    scores,
+    justifications: parsed.justifications ?? {},
+    composite_score: computeBenchmarkComposite(scores),
     raw_response: rawText,
   };
 }
@@ -116,15 +151,49 @@ export async function evaluateVoiceTranscript(
   });
 
   const rawText = response.text ?? "{}";
-  const parsed = JSON.parse(rawText) as {
+
+  let parsed: {
     scores: VoiceEvalScores;
     justifications: Record<keyof VoiceEvalScores, string>;
   };
 
+  try {
+    parsed = JSON.parse(rawText);
+  } catch (e) {
+    console.error("[judge] Failed to parse Gemini voice response:", rawText.slice(0, 500), e);
+    const fallbackScores: VoiceEvalScores = {
+      naturalness: 0,
+      helpfulness: 0,
+      latency: 0,
+      accuracy: 0,
+      tone: 0,
+    };
+    const fallbackJustification = "Evaluation failed: could not parse Gemini response.";
+    return {
+      scores: fallbackScores,
+      justifications: {
+        naturalness: fallbackJustification,
+        helpfulness: fallbackJustification,
+        latency: fallbackJustification,
+        accuracy: fallbackJustification,
+        tone: fallbackJustification,
+      },
+      composite_score: 0,
+    };
+  }
+
+  const scores: VoiceEvalScores = {
+    naturalness: parsed.scores?.naturalness ?? 0,
+    helpfulness: parsed.scores?.helpfulness ?? 0,
+    latency: parsed.scores?.latency ?? 0,
+    accuracy: parsed.scores?.accuracy ?? 0,
+    tone: parsed.scores?.tone ?? 0,
+  };
+
   return {
-    scores: parsed.scores,
-    justifications: parsed.justifications,
-    composite_score: computeVoiceComposite(parsed.scores),
+    scores,
+    justifications: parsed.justifications ?? {},
+    composite_score: computeVoiceComposite(scores),
   };
 }
 

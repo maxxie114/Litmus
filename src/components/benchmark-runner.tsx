@@ -13,7 +13,12 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BENCHMARK_TYPES, BENCHMARK_TYPE_LABELS } from "@/lib/utils/constants";
+import {
+  BENCHMARK_TYPES,
+  BENCHMARK_TYPE_LABELS,
+  BENCHMARK_TASK_DESCRIPTIONS,
+  SAMPLE_RESPONSES,
+} from "@/lib/utils/constants";
 import { formatScore } from "@/lib/utils/scoring";
 import type { BenchmarkType, BenchmarkScores } from "@/types/benchmark";
 
@@ -27,6 +32,7 @@ type RunState = {
   benchmarkId: string | undefined;
   scores: BenchmarkScores | undefined;
   compositeScore: number | undefined;
+  justifications: Record<string, string> | undefined;
   error: string | undefined;
 };
 
@@ -38,8 +44,13 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
     benchmarkId: undefined,
     scores: undefined,
     compositeScore: undefined,
+    justifications: undefined,
     error: undefined,
   });
+
+  const nonVoiceType = benchmarkType as Exclude<BenchmarkType, "voice">;
+  const taskDescription = BENCHMARK_TASK_DESCRIPTIONS[nonVoiceType];
+  const sampleResponse = SAMPLE_RESPONSES[nonVoiceType];
 
   async function runBenchmark() {
     setState({
@@ -47,6 +58,7 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
       benchmarkId: undefined,
       scores: undefined,
       compositeScore: undefined,
+      justifications: undefined,
       error: undefined,
     });
 
@@ -71,6 +83,7 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
         benchmarkId: data.id,
         scores: data.scores,
         compositeScore: data.composite_score,
+        justifications: data.justifications,
         error: undefined,
       });
     } catch (err) {
@@ -93,7 +106,10 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
         <div className="flex gap-3">
           <Select
             value={benchmarkType}
-            onValueChange={(val) => setBenchmarkType(val as BenchmarkType)}
+            onValueChange={(val) => {
+              setBenchmarkType(val as BenchmarkType);
+              setAgentResponse("");
+            }}
             disabled={state.status === "running"}
           >
             <SelectTrigger className="w-[200px]">
@@ -115,17 +131,38 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
           </Button>
         </div>
 
+        {/* Task Description */}
+        {taskDescription && (
+          <div className="p-3 bg-muted rounded-lg">
+            <p className="text-xs font-semibold text-muted-foreground mb-1">Benchmark Task</p>
+            <p className="text-sm">{taskDescription}</p>
+          </div>
+        )}
+
+        {/* Agent Response Input */}
         {!hasApiEndpoint && (
           <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">
-              This agent has no API endpoint configured. Paste the agent&apos;s response below to evaluate it.
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Paste the agent&apos;s actual response to the task above, or use a sample to see the feature in action.
+              </p>
+              {sampleResponse && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setAgentResponse(sampleResponse)}
+                  disabled={state.status === "running"}
+                >
+                  Use Sample Response
+                </Button>
+              )}
+            </div>
             <Textarea
               placeholder="Paste the agent's response here..."
               value={agentResponse}
               onChange={(e) => setAgentResponse(e.target.value)}
               disabled={state.status === "running"}
-              rows={6}
+              rows={8}
             />
           </div>
         )}
@@ -133,6 +170,9 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
         {state.status === "running" && (
           <div className="space-y-2">
             <Progress value={undefined} className="animate-pulse" />
+            <p className="text-sm text-muted-foreground text-center">
+              Gemini is evaluating the response...
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {Array.from({ length: 5 }).map((_, i) => (
                 <Skeleton key={i} className="h-16" />
@@ -152,6 +192,11 @@ export function BenchmarkRunner({ agentSlug, hasApiEndpoint }: BenchmarkRunnerPr
                 <div key={key} className="p-3 border rounded-lg">
                   <p className="text-xs text-muted-foreground capitalize">{key}</p>
                   <p className="text-lg font-semibold">{formatScore(value as number)}</p>
+                  {state.justifications?.[key] && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {state.justifications[key]}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>

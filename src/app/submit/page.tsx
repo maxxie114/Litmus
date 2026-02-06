@@ -57,7 +57,7 @@ export default function SubmitPage() {
   };
 
   return (
-    <div className="container py-8 max-w-2xl">
+    <div className="container mx-auto px-4 md:px-6 py-8 max-w-2xl">
       <h1 className="text-3xl font-bold mb-6">Submit an Agent</h1>
       <Card>
         <CardHeader>

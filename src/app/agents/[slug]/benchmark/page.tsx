@@ -18,7 +18,7 @@ export default async function BenchmarkPage({ params }: { params: Promise<{ slug
   if (!agent) notFound();
 
   return (
-    <div className="container py-8 space-y-6">
+    <div className="container mx-auto px-4 md:px-6 py-8 space-y-6">
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/agents" className="hover:underline">
           Agents

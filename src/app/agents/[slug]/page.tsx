@@ -94,7 +94,7 @@ export default async function AgentProfilePage({ params }: { params: Promise<{ s
   const totalEvaluations = (benchmarks?.length || 0) + (voice_evaluations?.length || 0);
 
   return (
-    <div className="container mx-auto py-8 px-4">
+    <div className="container mx-auto px-4 md:px-6 py-8">
       {/* Header Section */}
       <div className="mb-8">
         <div className="flex items-start justify-between mb-4">

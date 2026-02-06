@@ -8,7 +8,8 @@
  * This module handles both directions of conversion using the wavefile library.
  */
 
-import { WaveFile } from "wavefile";
+import wavefile from "wavefile";
+const { WaveFile } = wavefile;
 
 /**
  * Converts base64-encoded mu-law 8kHz audio (from Plivo) to PCM 16-bit 16kHz (for Gemini).

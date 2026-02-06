@@ -1,5 +1,5 @@
 import { z } from "zod/v4";
-import { evaluateBenchmark, evaluateVoiceTranscript } from "@/lib/gemini/judge";
+import { evaluateBenchmark, evaluateVoiceTranscript, generateComparison } from "@/lib/gemini/judge";
 import { handleApiError, validateWithZod, ValidationError } from "@/lib/utils/errors";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { BenchmarkType } from "@/types/benchmark";
@@ -10,8 +10,8 @@ import type { TranscriptEntry } from "@/types/evaluation";
 // ---------------------------------------------------------------------------
 
 const evaluationRequestSchema = z.object({
-  type: z.enum(["benchmark", "voice", "transcript"]),
-  task_description: z.string().min(1),
+  type: z.enum(["benchmark", "voice", "transcript", "comparison"]),
+  task_description: z.string().min(1).optional(),
   agent_response: z.string().optional(),
   reference_answer: z.string().optional(),
   transcript: z
@@ -26,6 +26,17 @@ const evaluationRequestSchema = z.object({
   benchmark_type: z.string().optional(),
   call_uuid: z.string().optional(),
   duration_seconds: z.number().int().nonnegative().optional(),
+  // Comparison-specific fields
+  agents: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+        scores: z.record(z.string(), z.number()),
+      })
+    )
+    .optional(),
+  use_case: z.string().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -38,7 +49,9 @@ export async function POST(request: Request): Promise<Response> {
     const data = validateWithZod(evaluationRequestSchema, body);
 
     if (data.type === "benchmark") {
-      // Benchmark evaluation requires agent_response
+      if (!data.task_description) {
+        throw new ValidationError("task_description is required for benchmark evaluations");
+      }
       if (!data.agent_response) {
         throw new ValidationError("agent_response is required for benchmark evaluations");
       }
@@ -61,7 +74,9 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     if (data.type === "voice" || data.type === "transcript") {
-      // Voice / transcript evaluation requires a transcript array
+      if (!data.task_description) {
+        throw new ValidationError("task_description is required for voice/transcript evaluations");
+      }
       if (!data.transcript || data.transcript.length === 0) {
         throw new ValidationError("transcript is required for voice/transcript evaluations");
       }
@@ -101,6 +116,22 @@ export async function POST(request: Request): Promise<Response> {
         scores: evaluation.scores,
         justifications: evaluation.justifications,
         composite_score: evaluation.composite_score,
+      });
+    }
+
+    if (data.type === "comparison") {
+      if (!data.agents || data.agents.length < 2) {
+        throw new ValidationError("At least 2 agents are required for comparison");
+      }
+      if (!data.use_case) {
+        throw new ValidationError("use_case is required for comparison evaluations");
+      }
+
+      const recommendation = await generateComparison(data.agents, data.use_case);
+
+      return Response.json({
+        type: "comparison",
+        recommendation,
       });
     }
 
