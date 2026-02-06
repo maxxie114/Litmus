@@ -8,7 +8,8 @@
  * This module handles both directions of conversion using the wavefile library.
  */
 
-import { WaveFile } from "wavefile";
+import pkg from "wavefile";
+const { WaveFile } = pkg;
 
 /**
  * Converts base64-encoded mu-law 8kHz audio (from Plivo) to PCM 16-bit 16kHz (for Gemini).
@@ -35,7 +36,7 @@ export function mulawToPcm16k(mulawBase64: string): Buffer {
   wav.toSampleRate(16000);
 
   // Extract raw PCM sample data (skip WAV header)
-  const samples = wav.data.samples as Uint8Array;
+  const samples = (wav.data as any).samples as Uint8Array;
   return Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
 }
 
@@ -62,7 +63,7 @@ export function pcm24kToMulaw(pcmBuffer: Buffer): string {
   wav.toMuLaw();
 
   // Extract raw mu-law sample data
-  const samples = wav.data.samples as Uint8Array;
+  const samples = (wav.data as any).samples as Uint8Array;
   const mulawBytes = Buffer.from(samples.buffer, samples.byteOffset, samples.byteLength);
 
   return mulawBytes.toString("base64");

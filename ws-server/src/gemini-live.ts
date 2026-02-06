@@ -11,7 +11,7 @@
  * Audio output format: PCM 16-bit, 24kHz, mono
  */
 
-import { GoogleGenAI, Modality, type Session } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 
 export type GeminiMessage =
   | { type: "audio"; data: Buffer }
@@ -26,7 +26,7 @@ export type GeminiMessage =
  * Transcription is enabled for both input and output so the server can
  * build a conversation transcript.
  */
-export async function createLiveSession(apiKey: string, systemPrompt: string): Promise<Session> {
+export async function createLiveSession(apiKey: string, systemPrompt: string): Promise<any> {
   const ai = new GoogleGenAI({ apiKey });
 
   const session = await ai.live.connect({
@@ -44,6 +44,14 @@ export async function createLiveSession(apiKey: string, systemPrompt: string): P
         },
       },
     },
+    callbacks: {
+      onopen: () => console.log("Gemini Live session opened"),
+      onclose: () => console.log("Gemini Live session closed"),
+      onerror: (error: any) => console.error("Gemini Live error:", error),
+      onmessage: (msg: any) => {
+        // Messages are handled via the async iterator in receiveMessages
+      },
+    },
   });
 
   return session;
@@ -52,10 +60,10 @@ export async function createLiveSession(apiKey: string, systemPrompt: string): P
 /**
  * Sends a chunk of PCM 16kHz audio to the Gemini Live session.
  */
-export async function sendAudioChunk(session: Session, pcm16kBuffer: Buffer): Promise<void> {
+export async function sendAudioChunk(session: any, pcm16kBuffer: Buffer): Promise<void> {
   await session.sendRealtimeInput({
     audio: {
-      data: pcm16kBuffer,
+      data: pcm16kBuffer.toString("base64"),
       mimeType: "audio/pcm;rate=16000",
     },
   });
@@ -69,34 +77,37 @@ export async function sendAudioChunk(session: Session, pcm16kBuffer: Buffer): Pr
  * - "input_transcript": Transcription of what the user said
  * - "output_transcript": Transcription of what Gemini said
  */
-export async function* receiveMessages(session: Session): AsyncGenerator<GeminiMessage> {
-  for await (const msg of session.receive()) {
-    // Audio response from Gemini (PCM 24kHz)
-    if (msg.serverContent?.modelTurn?.parts) {
-      for (const part of msg.serverContent.modelTurn.parts) {
-        if (part.inlineData?.data) {
-          yield {
-            type: "audio",
-            data: Buffer.from(part.inlineData.data, "base64"),
-          };
+export async function* receiveMessages(session: any): AsyncGenerator<GeminiMessage> {
+  // Use the session's async iterator if available
+  if (session[Symbol.asyncIterator]) {
+    for await (const msg of session) {
+      // Audio response from Gemini (PCM 24kHz)
+      if (msg.serverContent?.modelTurn?.parts) {
+        for (const part of msg.serverContent.modelTurn.parts) {
+          if (part.inlineData?.data) {
+            yield {
+              type: "audio",
+              data: Buffer.from(part.inlineData.data, "base64"),
+            };
+          }
         }
       }
-    }
 
-    // Input transcription (what the user said)
-    if (msg.serverContent?.inputTranscription?.text) {
-      yield {
-        type: "input_transcript",
-        text: msg.serverContent.inputTranscription.text,
-      };
-    }
+      // Input transcription (what the user said)
+      if (msg.serverContent?.inputTranscription?.text) {
+        yield {
+          type: "input_transcript",
+          text: msg.serverContent.inputTranscription.text,
+        };
+      }
 
-    // Output transcription (what the agent said)
-    if (msg.serverContent?.outputTranscription?.text) {
-      yield {
-        type: "output_transcript",
-        text: msg.serverContent.outputTranscription.text,
-      };
+      // Output transcription (what the agent said)
+      if (msg.serverContent?.outputTranscription?.text) {
+        yield {
+          type: "output_transcript",
+          text: msg.serverContent.outputTranscription.text,
+        };
+      }
     }
   }
 }
