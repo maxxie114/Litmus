@@ -1,15 +1,32 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatScore } from "@/lib/utils/scoring";
 import { MAX_COMPARE_AGENTS } from "@/lib/utils/constants";
 import type { AgentProfile } from "@/types/agent";
+
+type SandboxFeedback = {
+  scores: Record<string, number>;
+  justifications: Record<string, string>;
+  composite_score: number;
+};
+
+type SandboxResult = {
+  slug: string;
+  name: string;
+  response: string;
+  error?: string;
+  source: "api" | "simulated";
+  feedback?: SandboxFeedback;
+};
 
 const ScoreRadar = dynamic(
   () => import("@/components/score-radar").then((m) => ({ default: m.ScoreRadar })),
@@ -33,6 +50,11 @@ export function ComparisonTable({ availableAgents }: ComparisonTableProps) {
   const [loading, setLoading] = useState(false);
   const [recommendation, setRecommendation] = useState<string>("");
   const [useCase, setUseCase] = useState("");
+  const [sandboxPrompt, setSandboxPrompt] = useState("");
+  const [sandboxEvaluate, setSandboxEvaluate] = useState(true);
+  const [sandboxLoading, setSandboxLoading] = useState(false);
+  const [sandboxResults, setSandboxResults] = useState<SandboxResult[] | null>(null);
+  const [sandboxUseCase, setSandboxUseCase] = useState<string | null>(null);
 
   async function addAgent(slug: string) {
     if (selectedSlugs.includes(slug) || selectedSlugs.length >= MAX_COMPARE_AGENTS) return;
@@ -86,6 +108,33 @@ export function ComparisonTable({ availableAgents }: ComparisonTableProps) {
     if (res.ok) {
       const data = await res.json();
       setRecommendation(data.recommendation ?? "");
+    }
+  }
+
+  async function runSandboxTest() {
+    if (selectedSlugs.length === 0 || !sandboxPrompt.trim()) return;
+    setSandboxLoading(true);
+    setSandboxResults(null);
+    setSandboxUseCase(null);
+    try {
+      const res = await fetch("/api/sandbox/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          agent_slugs: selectedSlugs,
+          prompt: sandboxPrompt.trim(),
+          evaluate: sandboxEvaluate,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && Array.isArray(data.results)) {
+        setSandboxResults(data.results);
+        setSandboxUseCase(data.use_case ?? sandboxPrompt.trim());
+      }
+    } catch {
+      setSandboxResults([]);
+    } finally {
+      setSandboxLoading(false);
     }
   }
 
@@ -201,6 +250,112 @@ export function ComparisonTable({ availableAgents }: ComparisonTableProps) {
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Test with prompt (sandbox) */}
+      {agents.length >= 1 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Test with a prompt</CardTitle>
+            <p className="text-sm text-muted-foreground font-normal">
+              Run the same prompt against the selected agents and get responses plus optional AI feedback (scores and justifications).
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Textarea
+              placeholder="Enter a use case or question to test all selected agents..."
+              value={sandboxPrompt}
+              onChange={(e) => setSandboxPrompt(e.target.value)}
+              rows={3}
+              className="resize-y"
+            />
+            <label className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="checkbox"
+                checked={sandboxEvaluate}
+                onChange={(e) => setSandboxEvaluate(e.target.checked)}
+                className="rounded border-input"
+              />
+              Get AI feedback (scores and justifications)
+            </label>
+            <Button
+              onClick={runSandboxTest}
+              disabled={sandboxLoading || !sandboxPrompt.trim()}
+            >
+              {sandboxLoading ? "Running…" : "Run test"}
+            </Button>
+
+            {sandboxResults && sandboxResults.length > 0 && (
+              <div className="mt-6 space-y-4 border-t pt-4">
+                {sandboxUseCase && (
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">Use case</p>
+                    <p className="text-sm whitespace-pre-wrap bg-muted/50 p-3 rounded-md">{sandboxUseCase}</p>
+                  </div>
+                )}
+                <p className="text-sm font-medium">Responses & feedback</p>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {sandboxResults.map((r) => (
+                    <Card key={r.slug || r.name} className="flex flex-col">
+                      <CardHeader className="pb-1">
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <CardTitle className="text-sm">
+                            {r.slug ? (
+                              <Link href={`/agents/${r.slug}`} className="hover:underline">
+                                {r.name}
+                              </Link>
+                            ) : (
+                              r.name
+                            )}
+                          </CardTitle>
+                          <Badge variant={r.source === "api" ? "default" : "secondary"} className="text-xs">
+                            {r.source === "api" ? "Live" : "Simulated"}
+                          </Badge>
+                        </div>
+                        {r.feedback && (
+                          <p className="text-base font-semibold text-primary">
+                            Score: {formatScore(r.feedback.composite_score)}
+                          </p>
+                        )}
+                      </CardHeader>
+                      <CardContent className="space-y-2 flex-1 text-sm">
+                        {r.error ? (
+                          <p className="text-destructive">{r.error}</p>
+                        ) : (
+                          <p className="whitespace-pre-wrap break-words">{r.response}</p>
+                        )}
+                        {r.feedback?.scores && (
+                          <ul className="text-xs space-y-0.5 pt-1 border-t">
+                            {Object.entries(r.feedback.scores).map(([dim, val]) => (
+                              <li key={dim} className="flex justify-between gap-2">
+                                <span className="capitalize">{dim}</span>
+                                <span className="font-medium">{formatScore(val)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                        {r.feedback?.justifications && Object.keys(r.feedback.justifications).length > 0 && (
+                          <details className="text-xs">
+                            <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+                              Justifications
+                            </summary>
+                            <ul className="mt-1 space-y-1 list-none pl-0">
+                              {Object.entries(r.feedback.justifications).map(([dim, text]) => (
+                                <li key={dim}>
+                                  <span className="capitalize font-medium">{dim}:</span> {text}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

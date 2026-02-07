@@ -36,6 +36,7 @@ export const VOICE_SCORE_WEIGHTS = {
 
 export const DEFAULT_PAGE_SIZE = 20;
 export const MAX_COMPARE_AGENTS = 4;
+export const SANDBOX_MAX_AGENTS = 8;
 export const INTELLIGENCE_CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
 export const GEMINI_MODELS = {
